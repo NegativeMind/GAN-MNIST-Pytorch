@@ -41,8 +41,8 @@ if __name__ == '__main__':
 
     # Image processing
     transform = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Normalize(mean=(0.5, 0.5, 0.5),   # 3 for RGB channels
-                                    std=(0.5, 0.5, 0.5))])
+                                    transforms.Normalize(mean=(0.5,), # MNIST has only 1 channel (PyTorch 1.1)
+                                    std=(0.5,))])
 
     # MNIST dataset
     mnist = torchvision.datasets.MNIST(root='./data/',
@@ -74,6 +74,7 @@ if __name__ == '__main__':
     real_scores = np.zeros(num_epochs)
     fake_scores = np.zeros(num_epochs)
 
+    fixed_noise = torch.randn(batch_size, latent_size).to(device)
 
     # Start training
     total_step = len(data_loader)
@@ -144,15 +145,18 @@ if __name__ == '__main__':
                     .format(epoch, num_epochs, i+1, total_step, d_loss.item(), g_loss.item(), 
                             real_score.mean().item(), fake_score.mean().item()))
     
+            # Save generated images
+            with torch.no_grad():
+                sample_images = G(fixed_noise).detach().cpu()
+                sample_images = sample_images.view(sample_images.size(0), 1, 28, 28)
+                save_image(denorm(sample_images.data), os.path.join(sample_dir, 'fake_images-{}_{}.png'.format(epoch+1, i)))
+
         # Save real images
-        if (epoch+1) == 1:
+        if (epoch + 1) == 1:
             images = images.view(images.size(0), 1, 28, 28)
             save_image(denorm(images.data), os.path.join(sample_dir, 'real_images.png'))
-    
-        # Save sampled images
-        fake_images = fake_images.view(fake_images.size(0), 1, 28, 28)
-        save_image(denorm(fake_images.data), os.path.join(sample_dir, 'fake_images-{}.png'.format(epoch+1)))
-    
+
+
         # Save and plot Statistics
         np.save(os.path.join(save_dir, 'd_losses.npy'), d_losses)
         np.save(os.path.join(save_dir, 'g_losses.npy'), g_losses)
