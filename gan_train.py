@@ -77,13 +77,14 @@ if __name__ == '__main__':
     fixed_noise = torch.randn(batch_size, latent_size).to(device)
 
     # Start training
+    preview_count = 1
     total_step = len(data_loader)
     for epoch in range(num_epochs):
         for i, (images, _) in enumerate(data_loader):
-            images = images.view(batch_size, -1).cuda()
+            images = images.view(batch_size, -1).to(device)
             # Create the labels which are later used as input for the BCE loss
-            real_labels = torch.ones(batch_size, 1).cuda()
-            fake_labels = torch.zeros(batch_size, 1).cuda()
+            real_labels = torch.ones(batch_size, 1).to(device)
+            fake_labels = torch.zeros(batch_size, 1).to(device)
 
             # ================================================================== #
             #                      Train the discriminator                       #
@@ -141,15 +142,17 @@ if __name__ == '__main__':
             fake_scores[epoch] = fake_scores[epoch] * (i/(i+1.)) + fake_score.mean().item() * (1./(i+1.))
         
             if (i+1) % 200 == 0:
-                print('Epoch [{}/{}], Step [{}/{}], d_loss: {:.4f}, g_loss: {:.4f}, D(x): {:.2f}, D(G(z)): {:.2f}' 
-                    .format(epoch, num_epochs, i+1, total_step, d_loss.item(), g_loss.item(), 
+                print('Epoch [{}/{}], Step [{}/{}], d_loss: {:.4f}, g_loss: {:.4f}, D(x): {:.2f}, D(G(z)): {:.2f}'
+                    .format(epoch, num_epochs, i + 1, total_step, d_loss.item(), g_loss.item(),
                             real_score.mean().item(), fake_score.mean().item()))
-    
+
             # Save generated images
-            with torch.no_grad():
-                sample_images = G(fixed_noise).detach().cpu()
-                sample_images = sample_images.view(sample_images.size(0), 1, 28, 28)
-                save_image(denorm(sample_images.data), os.path.join(sample_dir, 'fake_images-{}_{}.png'.format(epoch+1, i)))
+            if (i+1) % 200 == 0:
+                with torch.no_grad():
+                    sample_images = G(fixed_noise).detach().cpu()
+                    sample_images = sample_images.view(sample_images.size(0), 1, 28, 28)
+                    save_image(denorm(sample_images.data), os.path.join(sample_dir, 'fake_images-{:08}.png'.format(preview_count)))
+                    preview_count = preview_count + 1
 
         # Save real images
         if (epoch + 1) == 1:
@@ -181,11 +184,11 @@ if __name__ == '__main__':
         plt.close()
 
         # Save model at checkpoints
-        if (epoch+1) % 50 == 0:
+        if (epoch + 1) % 50 == 0:
             torch.save(G.state_dict(), os.path.join(save_dir, 'G--{}.ckpt'.format(epoch+1)))
             torch.save(D.state_dict(), os.path.join(save_dir, 'D--{}.ckpt'.format(epoch+1)))
 
     # Save the model checkpoints 
     torch.save(G.state_dict(), 'G.ckpt')
     torch.save(D.state_dict(), 'D.ckpt')
-
+    
